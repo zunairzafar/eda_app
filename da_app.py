@@ -36,10 +36,6 @@ if uploaded_file:
             mime="application/pdf"    
     )
 
-        if st.button("Generate PDF Report"):
-            generate_eda_report(df)
-            st.success("✅ Report saved as `eda_report.pdf`")
-
     elif action == "Simulate Confidence Intervals":
         confidence = st.slider("Select Confidence Level (%)", 80, 99, 95)
         sample_size = st.slider("Sample Size", min_value=10, max_value=100, value=30)
