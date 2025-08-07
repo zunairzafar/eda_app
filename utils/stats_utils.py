@@ -52,8 +52,7 @@ def simulate_confidence_intervals(df, confidence, sample_size):
         ax.legend()
         plt.tight_layout()
         st.pyplot(fig)
-
-     from io import BytesIO
+from io import BytesIO
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
