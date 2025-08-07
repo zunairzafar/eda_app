@@ -4,7 +4,7 @@ from utils.eda_utils import generate_eda_report
 from utils.stats_utils import simulate_confidence_intervals
 
 st.set_page_config(layout="wide")
-st.title("📊 Interactive EDA and Statistical Analysis App")
+st.title("📊 Interactive EDA and Statistical Analysis App(By Zunair Zafar)")
 
 uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
 if uploaded_file:
