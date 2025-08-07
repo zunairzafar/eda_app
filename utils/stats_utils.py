@@ -53,30 +53,42 @@ def simulate_confidence_intervals(df, confidence, sample_size):
         plt.tight_layout()
         st.pyplot(fig)
 
-        # ====== Generate downloadable PDF ======
-        # Save figure to buffer
-        img_buffer = BytesIO()
-        fig.savefig(img_buffer, format="png", bbox_inches="tight", dpi=300)
-        img_buffer.seek(0)
+     from io import BytesIO
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.utils import ImageReader
 
-        # Create PDF with image embedded
-        pdf_buffer = BytesIO()
-        c = canvas.Canvas(pdf_buffer, pagesize=letter)
-        width, height = letter
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(40, 770, f"CI Simulation Report - {selected_col} ({confidence}%)")
+# Save the CI plot to an image buffer
+img_buf = BytesIO()
+fig.savefig(img_buf, format='png', bbox_inches='tight')
+img_buf.seek(0)
 
-        # Draw the image on PDF
-        image = ImageReader(img_buffer)
-        c.drawImage(image, 40, 300, width=500, height=400, preserveAspectRatio=True)
+# Generate a PDF and embed the image
+pdf_buf = BytesIO()
+c = canvas.Canvas(pdf_buf, pagesize=letter)
+c.setFont("Helvetica-Bold", 14)
+c.drawString(50, 750, f"{confidence}% Confidence Interval Report for {selected_col}")
 
-        c.save()
-        pdf_buffer.seek(0)
+# Embed the plot image
+image = ImageReader(img_buf)
+c.drawImage(image, 50, 400, width=500, height=300, preserveAspectRatio=True)
 
-        # ====== Streamlit download button ======
-        st.download_button(
-            label="📥 Download CI Report as PDF",
-            data=pdf_buffer,
-            file_name=f"ci_report_{selected_col}_{confidence}pct.pdf",
-            mime="application/pdf"
+# Add interval details
+c.setFont("Helvetica", 12)
+c.drawString(50, 370, f"Sample Size: {sample_size}")
+c.drawString(50, 350, f"Sample Mean: {mean:.2f}")
+c.drawString(50, 330, f"Confidence Interval: ({lower:.2f}, {upper:.2f})")
+
+c.showPage()
+c.save()
+pdf_buf.seek(0)
+
+# Add download button
+st.download_button(
+    label="📥 Download CI Report as PDF",
+    data=pdf_buf,
+    file_name=f"ci_report_{selected_col}.pdf",
+    mime="application/pdf"
+)
+
         )
