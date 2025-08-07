@@ -13,7 +13,7 @@ import tempfile
 import os
 
 st.set_page_config(layout="wide")
-st.title("📊 Interactive EDA & Statistical Analysis App")
+st.title("📊 Interactive EDA & Statistical Analysis App(By:Zunair Zafar")
 
 # --- Upload file ---
 uploaded_file = st.file_uploader("Upload your dataset (CSV or Excel)", type=["csv", "xlsx"])
@@ -48,25 +48,29 @@ if uploaded_file:
     ci_percent = st.slider("Confidence Level (%)", 80, 99, 95)
 
     ci_data = df[ci_col].dropna()
-    sample_size = min(30, len(ci_data))
-    sample = ci_data.sample(sample_size)
+    sample_size = st.number_input("Sample size", min_value=10, max_value=len(df), value=30)
+    confidence = st.slider("Confidence level (%)", min_value=80, max_value=99, value=95)
 
-    sample_mean = sample.mean()
-    sample_std = sample.std(ddof=1)
-    dof = sample_size - 1
-    confidence = ci_percent / 100
-    t_crit = t.ppf((1 + confidence) / 2, dof)
-    margin_error = t_crit * (sample_std / np.sqrt(sample_size))
+    # Get fixed sample
+    sample = get_sample(df[numeric_column], sample_size)
 
-    lower_bound = sample_mean - margin_error
-    upper_bound = sample_mean + margin_error
+    # Calculate sample statistics
+    mean = sample.mean()
+    std = sample.std(ddof=1)
+    z_score = stats.t.ppf((1 + confidence / 100) / 2, df=sample_size - 1)
 
-    st.write(f"**Sample Size:** {sample_size}")
-    st.write(f"**Sample Mean:** {sample_mean:.2f}")
-    st.write(f"**Confidence Interval:** {lower_bound:.2f} to {upper_bound:.2f}")
+    # Calculate margin of error and confidence interval
+    margin_of_error = z_score * (std / np.sqrt(sample_size))
+    lower = mean - margin_of_error
+    upper = mean + margin_of_error
+
+    st.write(f"Sample Mean: {mean:.2f}")
+    st.write(f"{confidence}% Confidence Interval: [{lower:.2f}, {upper:.2f}]")
+
 
     # --- Plot CI Simulation ---
     fig, ax = plt.subplots()
+    plt.figure(figsize=(6, 4))
     ax.errorbar(1, sample_mean, yerr=margin_error, fmt='o', capsize=5)
     ax.axhline(sample_mean, color='green', linestyle='--')
     ax.set_xlim(0, 2)
@@ -79,6 +83,7 @@ if uploaded_file:
 
     fig1, ax1 = plt.subplots()
     sns.histplot(df[dist_col].dropna(), kde=True, ax=ax1)
+    plt.figure(figsize=(6, 4))
     ax1.set_title(f"Distribution of {dist_col}")
     st.pyplot(fig1)
 
@@ -97,6 +102,7 @@ if uploaded_file:
     box_col = st.selectbox("Select column for boxplot", numerical_cols)
     fig3, ax3 = plt.subplots()
     sns.boxplot(df[box_col], ax=ax3)
+    plt.figure(figsize=(6, 4))
     ax3.set_title(f"Boxplot of {box_col}")
     st.pyplot(fig3)
 
