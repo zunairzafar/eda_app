@@ -25,6 +25,14 @@ if uploaded_file:
     ])
 
     if action == "Generate EDA Report":
+        with open("eda_report.pdf", "rb") as f:
+    st.download_button(
+        label="📥 Download EDA Report",
+        data=f,
+        file_name="eda_report.pdf",
+        mime="application/pdf"
+    )
+
         if st.button("Generate PDF Report"):
             generate_eda_report(df)
             st.success("✅ Report saved as `eda_report.pdf`")
