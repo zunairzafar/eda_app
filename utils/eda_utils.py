@@ -1,65 +1,65 @@
-# utils/eda_utils.py
-
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet
+from scipy.stats import norm
 import os
 
-def classify_columns(df, threshold=10):
-    categorical_cols = []
-    numerical_cols = []
-    for col in df.columns:
-        if df[col].dtype == 'O' or df[col].nunique() <= threshold:
-            categorical_cols.append(col)
-        else:
-            numerical_cols.append(col)
-    return categorical_cols, numerical_cols
+def generate_eda_report(df):
+    doc = SimpleDocTemplate("eda_report.pdf", pagesize=letter)
+    styles = getSampleStyleSheet()
+    elements = []
 
-def generate_missing_value_report(df):
-    missing = df.isnull().sum()
-    missing_percent = (missing / len(df)) * 100
-    missing_df = pd.DataFrame({
-        'Missing Values': missing,
-        'Percent': missing_percent
-    })
-    missing_df = missing_df[missing_df['Missing Values'] > 0]
-    return missing_df
+    elements.append(Paragraph("Exploratory Data Analysis Report", styles['Title']))
+    elements.append(Spacer(1, 12))
 
-def describe_data(df):
-    return df.describe()
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    categorical_cols = [col for col in df.columns if df[col].nunique() <= 10]
 
-def plot_distribution(df, numerical_cols, output_dir):
-    paths = []
-    for col in numerical_cols:
-        plt.figure(figsize=(6, 4))
-        sns.histplot(df[col].dropna(), kde=True)
-        plt.title(f"Distribution of {col}")
-        path = os.path.join(output_dir, f"dist_{col}.png")
-        plt.savefig(path)
+    # Descriptive stats
+    elements.append(Paragraph("Descriptive Statistics", styles['Heading2']))
+    desc_stats = df.describe().round(2).to_string()
+    elements.append(Paragraph(f"<pre>{desc_stats}</pre>", styles['Code']))
+    elements.append(Spacer(1, 12))
+
+    # Distribution and CLT
+    for col in numeric_cols:
+        fig, ax = plt.subplots()
+        df[col].hist(ax=ax, bins=20)
+        ax.set_title(f"Distribution of {col}")
+        img_path = f"{col}_hist.png"
+        plt.savefig(img_path)
+        elements.append(Image(img_path, width=400, height=300))
         plt.close()
-        paths.append(path)
-    return paths
 
-def plot_boxplots(df, numerical_cols, output_dir):
-    paths = []
-    for col in numerical_cols:
-        plt.figure(figsize=(6, 4))
-        sns.boxplot(y=df[col])
-        plt.title(f"Boxplot of {col}")
-        path = os.path.join(output_dir, f"box_{col}.png")
-        plt.savefig(path)
+        # CLT simulation
+        sample_means = [df[col].dropna().sample(30).mean() for _ in range(1000)]
+        fig, ax = plt.subplots()
+        ax.hist(sample_means, bins=30)
+        ax.set_title(f"CLT Simulation for {col}")
+        img_path = f"{col}_clt.png"
+        plt.savefig(img_path)
+        elements.append(Image(img_path, width=400, height=300))
         plt.close()
-        paths.append(path)
-    return paths
 
-def identify_outliers(df, numerical_cols):
-    outlier_report = {}
-    for col in numerical_cols:
-        q1 = df[col].quantile(0.25)
-        q3 = df[col].quantile(0.75)
-        iqr = q3 - q1
-        lower = q1 - 1.5 * iqr
-        upper = q3 + 1.5 * iqr
-        outliers = df[(df[col] < lower) | (df[col] > upper)]
-        outlier_report[col] = len(outliers)
-    return outlier_report
+    # Boxplots and outliers
+    for col in numeric_cols:
+        fig, ax = plt.subplots()
+        df.boxplot(column=col, ax=ax)
+        ax.set_title(f"Boxplot of {col}")
+        img_path = f"{col}_box.png"
+        plt.savefig(img_path)
+        elements.append(Image(img_path, width=400, height=300))
+        plt.close()
+
+    doc.build(elements)
+
+    # Clean up
+    for col in numeric_cols:
+        for suffix in ["_hist.png", "_clt.png", "_box.png"]:
+            try:
+                os.remove(f"{col}{suffix}")
+            except:
+                pass
