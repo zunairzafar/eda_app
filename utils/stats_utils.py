@@ -41,4 +41,5 @@ def simulate_confidence_intervals(df, confidence, sample_size):
         ax.set_xlabel("Value")
         ax.set_ylabel("Simulation Index")
         ax.legend()
+        plt.tight_layout()
         st.pyplot(fig)
