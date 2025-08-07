@@ -1,65 +1,68 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet
 from scipy.stats import norm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+import seaborn as sns
 import os
 
 def generate_eda_report(df):
-    doc = SimpleDocTemplate("eda_report.pdf", pagesize=letter)
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    cat_cols = [col for col in df.columns if df[col].nunique() <= 10 or df[col].dtype == "object"]
+
+    doc = SimpleDocTemplate("eda_report.pdf", pagesize=A4)
     styles = getSampleStyleSheet()
-    elements = []
+    story = [Paragraph("EDA Report", styles['Title']), Spacer(1, 12)]
 
-    elements.append(Paragraph("Exploratory Data Analysis Report", styles['Title']))
-    elements.append(Spacer(1, 12))
+    story.append(Paragraph("Descriptive Statistics:", styles["Heading2"]))
+    desc = df.describe().round(2).to_string()
+    story.append(Paragraph(f"<pre>{desc}</pre>", styles["Code"]))
+    story.append(Spacer(1, 12))
 
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    categorical_cols = [col for col in df.columns if df[col].nunique() <= 10]
-
-    # Descriptive stats
-    elements.append(Paragraph("Descriptive Statistics", styles['Heading2']))
-    desc_stats = df.describe().round(2).to_string()
-    elements.append(Paragraph(f"<pre>{desc_stats}</pre>", styles['Code']))
-    elements.append(Spacer(1, 12))
-
-    # Distribution and CLT
+    # Numerical Distribution
+    story.append(Paragraph("Distribution of Numerical Columns:", styles["Heading2"]))
     for col in numeric_cols:
         fig, ax = plt.subplots()
-        df[col].hist(ax=ax, bins=20)
-        ax.set_title(f"Distribution of {col}")
-        img_path = f"{col}_hist.png"
-        plt.savefig(img_path)
-        elements.append(Image(img_path, width=400, height=300))
-        plt.close()
+        sns.histplot(df[col].dropna(), kde=True, ax=ax)
+        ax.set_title(f"Distribution: {col}")
+        img_path = f"{col}_dist.png"
+        fig.savefig(img_path)
+        plt.close(fig)
+        story.append(Image(img_path, width=400, height=300))
+        story.append(Spacer(1, 12))
 
-        # CLT simulation
-        sample_means = [df[col].dropna().sample(30).mean() for _ in range(1000)]
-        fig, ax = plt.subplots()
-        ax.hist(sample_means, bins=30)
-        ax.set_title(f"CLT Simulation for {col}")
-        img_path = f"{col}_clt.png"
-        plt.savefig(img_path)
-        elements.append(Image(img_path, width=400, height=300))
-        plt.close()
+        # CLT if not normal
+        if abs(df[col].skew()) > 0.5:
+            samples = [df[col].dropna().sample(30).mean() for _ in range(100)]
+            fig, ax = plt.subplots()
+            sns.histplot(samples, kde=True, ax=ax)
+            ax.set_title(f"CLT Simulation (Mean Dist): {col}")
+            clt_img = f"{col}_clt.png"
+            fig.savefig(clt_img)
+            plt.close(fig)
+            story.append(Image(clt_img, width=400, height=300))
+            story.append(Spacer(1, 12))
 
-    # Boxplots and outliers
+    # Boxplot and outliers
+    story.append(Paragraph("Outlier Analysis with Boxplots:", styles["Heading2"]))
     for col in numeric_cols:
         fig, ax = plt.subplots()
-        df.boxplot(column=col, ax=ax)
-        ax.set_title(f"Boxplot of {col}")
+        sns.boxplot(x=df[col], ax=ax)
+        ax.set_title(f"Boxplot: {col}")
         img_path = f"{col}_box.png"
-        plt.savefig(img_path)
-        elements.append(Image(img_path, width=400, height=300))
-        plt.close()
+        fig.savefig(img_path)
+        plt.close(fig)
+        story.append(Image(img_path, width=400, height=300))
+        story.append(Spacer(1, 12))
 
-    doc.build(elements)
+    # Categorical
+    story.append(Paragraph("Categorical Feature Analysis:", styles["Heading2"]))
+    for col in cat_cols:
+        story.append(Paragraph(f"{col}: {df[col].value_counts().to_dict()}", styles["Normal"]))
+        story.append(Spacer(1, 12))
 
-    # Clean up
-    for col in numeric_cols:
-        for suffix in ["_hist.png", "_clt.png", "_box.png"]:
-            try:
-                os.remove(f"{col}{suffix}")
-            except:
-                pass
+    doc.build(story)
+    return "eda_report.pdf"
+
